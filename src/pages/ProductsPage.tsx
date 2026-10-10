@@ -15,6 +15,7 @@ import {
 import { api } from '../api/client';
 import { Product, Category, AudienceScope } from '../types';
 import { CreateProductModal } from './CreateProductModal';
+import { getMediaUrl } from '../utils/media';
 
 export const ProductsPage: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
@@ -233,7 +234,7 @@ export const ProductsPage: React.FC = () => {
                         <div className="w-12 h-14 rounded-xl overflow-hidden bg-brand-card border border-brand-border shrink-0">
                           {p.primary_image_url ? (
                             <img
-                              src={p.primary_image_url}
+                              src={getMediaUrl(p.primary_image_url)}
                               alt={p.name}
                               className="w-full h-full object-cover"
                             />

@@ -13,6 +13,8 @@ import {
 } from 'lucide-react';
 import { api } from '../api/client';
 import { Category, Product, AudienceScope } from '../types';
+import { ImageUploader } from '../components/common/ImageUploader';
+import { getMediaUrl } from '../utils/media';
 
 interface CreateProductModalProps {
   isOpen: boolean;
@@ -632,81 +634,15 @@ export const CreateProductModal: React.FC<CreateProductModalProps> = ({
             </div>
 
             {/* 4. Multi-View Images */}
-            <div className="p-4 bg-brand-card/50 border border-brand-border rounded-xl space-y-3">
-              <span className="font-semibold text-slate-200 uppercase tracking-wider text-[11px] block">
-                4. Multi-View Product Images (Front, Back, Detail, Cover)
-              </span>
-
-              {/* Existing Images Grid */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                {images.map((img, idx) => (
-                  <div
-                    key={idx}
-                    className={`relative rounded-xl border p-2 bg-brand-card flex flex-col gap-1.5 ${
-                      img.isPrimary ? 'border-brand-gold shadow-md' : 'border-brand-border'
-                    }`}
-                  >
-                    <div className="aspect-[3/4] rounded-lg overflow-hidden bg-slate-900 relative">
-                      <img src={img.s3Url} alt={img.altText} className="w-full h-full object-cover" />
-                      <span className="absolute top-1 left-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-black/70 text-white uppercase">
-                        {img.viewType}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center justify-between text-[11px]">
-                      <button
-                        type="button"
-                        onClick={() => handleSetPrimaryImage(idx)}
-                        className={`flex items-center gap-1 font-semibold ${
-                          img.isPrimary ? 'text-brand-gold' : 'text-slate-400 hover:text-white'
-                        }`}
-                      >
-                        <Star className={`w-3.5 h-3.5 ${img.isPrimary ? 'fill-brand-gold' : ''}`} />
-                        <span>{img.isPrimary ? 'Cover' : 'Set Cover'}</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveImage(idx)}
-                        className="text-red-400 hover:text-red-300"
-                        title="Delete image"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Add New Image Input */}
-              <div className="flex flex-col sm:flex-row gap-2 pt-2 border-t border-brand-border">
-                <input
-                  type="url"
-                  value={newImageUrl}
-                  onChange={(e) => setNewImageUrl(e.target.value)}
-                  placeholder="Paste direct Image URL (https://...)"
-                  className="flex-1 px-3 py-2 bg-brand-card border border-brand-border rounded-xl text-white focus:outline-none focus:border-brand-gold"
-                />
-                <select
-                  value={newImageViewType}
-                  onChange={(e) => setNewImageViewType(e.target.value as any)}
-                  className="px-3 py-2 bg-brand-card border border-brand-border rounded-xl text-white focus:outline-none focus:border-brand-gold"
-                >
-                  <option value="FRONT">Front View</option>
-                  <option value="BACK">Back View</option>
-                  <option value="SIDE">Side Angle</option>
-                  <option value="DETAIL">Fabric Detail</option>
-                  <option value="COVER">Cover</option>
-                </select>
-                <button
-                  type="button"
-                  onClick={handleAddImage}
-                  className="px-4 py-2 bg-brand-border hover:bg-slate-700 text-white rounded-xl font-semibold flex items-center justify-center gap-1.5"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>Add Image</span>
-                </button>
-              </div>
+            <div className="p-4 bg-brand-card/50 border border-brand-border rounded-xl">
+              <ImageUploader
+                mode="multiple"
+                folder="products"
+                images={images}
+                onImagesChange={setImages}
+                label="4. Multi-View Product Images (AWS S3 & Storefront Sync)"
+                hint="Upload multiple angles (Front, Back, Side, Detail). Star marks primary cover."
+              />
             </div>
 
             {/* 5. Inventory & Variants */}
@@ -881,7 +817,7 @@ export const CreateProductModal: React.FC<CreateProductModalProps> = ({
                 <div className="relative aspect-[3/4] w-full bg-stone-100 overflow-hidden">
                   {primaryImage ? (
                     <img
-                      src={primaryImage.s3Url}
+                      src={getMediaUrl(primaryImage.s3Url)}
                       alt={name}
                       className="w-full h-full object-cover object-top"
                     />

@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { X, Sparkles, AlertCircle, CheckCircle2, Image as ImageIcon, Eye } from 'lucide-react';
 import { api } from '../api/client';
 import { Category, AudienceScope } from '../types';
+import { ImageUploader } from '../components/common/ImageUploader';
+import { getMediaUrl } from '../utils/media';
 
 interface CategoryModalProps {
   isOpen: boolean;
@@ -266,25 +268,16 @@ export const CategoryModal: React.FC<CategoryModalProps> = ({
               />
             </div>
 
-            {/* Image URL with preview */}
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
-                Category Cover Image URL
-              </label>
-              <div className="flex gap-3 items-center">
-                <input
-                  type="url"
-                  value={imageUrl}
-                  onChange={(e) => setImageUrl(e.target.value)}
-                  placeholder="https://images.unsplash.com/..."
-                  className="flex-1 px-3.5 py-2 bg-brand-card border border-brand-border rounded-xl text-sm text-white focus:outline-none focus:border-brand-gold"
-                />
-                {imageUrl && (
-                  <div className="w-12 h-12 rounded-xl overflow-hidden bg-brand-card border border-brand-border shrink-0">
-                    <img src={imageUrl} alt="Preview" className="w-full h-full object-cover" />
-                  </div>
-                )}
-              </div>
+            {/* Category Cover Image with AWS S3 Uploader */}
+            <div className="p-3.5 bg-brand-card/40 border border-brand-border rounded-xl">
+              <ImageUploader
+                mode="single"
+                folder="categories"
+                singleUrl={imageUrl}
+                onSingleUrlChange={setImageUrl}
+                label="Category Cover Image (AWS S3 & Storefront Sync)"
+                hint="Upload a high-resolution banner/cover image for this category"
+              />
             </div>
 
             {/* Publication Status Toggle */}
@@ -343,7 +336,7 @@ export const CategoryModal: React.FC<CategoryModalProps> = ({
             <div className="max-w-xs mx-auto">
               <div className="relative h-80 rounded-3xl overflow-hidden border border-brand-gold/40 shadow-2xl bg-brand-card group">
                 {imageUrl ? (
-                  <img src={imageUrl} alt={name || 'Category'} className="w-full h-full object-cover" />
+                  <img src={getMediaUrl(imageUrl)} alt={name || 'Category'} className="w-full h-full object-cover" />
                 ) : (
                   <div className="w-full h-full bg-slate-800 flex items-center justify-center text-slate-500">
                     <ImageIcon className="w-12 h-12" />

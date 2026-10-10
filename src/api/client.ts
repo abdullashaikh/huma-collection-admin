@@ -18,7 +18,7 @@ export async function apiRequest<T = any>(
   const token = localStorage.getItem('huma_admin_token');
 
   const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
+    ...(options.body instanceof FormData ? {} : { 'Content-Type': 'application/json' }),
     ...(options.headers as Record<string, string> || {}),
   };
 
@@ -54,6 +54,8 @@ export const api = {
   get: <T = any>(endpoint: string) => apiRequest<T>(endpoint, { method: 'GET' }),
   post: <T = any>(endpoint: string, body?: any) =>
     apiRequest<T>(endpoint, { method: 'POST', body: body ? JSON.stringify(body) : undefined }),
+  postFormData: <T = any>(endpoint: string, formData: FormData) =>
+    apiRequest<T>(endpoint, { method: 'POST', body: formData }),
   patch: <T = any>(endpoint: string, body?: any) =>
     apiRequest<T>(endpoint, { method: 'PATCH', body: body ? JSON.stringify(body) : undefined }),
   delete: <T = any>(endpoint: string) => apiRequest<T>(endpoint, { method: 'DELETE' }),

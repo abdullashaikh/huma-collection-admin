@@ -18,6 +18,7 @@ import {
 import { api } from '../api/client';
 import { Category, AudienceScope, Product } from '../types';
 import { CategoryModal } from './CategoryModal';
+import { getMediaUrl } from '../utils/media';
 
 export const CategoriesPage: React.FC = () => {
   const [categories, setCategories] = useState<Category[]>([]);
@@ -224,7 +225,7 @@ export const CategoriesPage: React.FC = () => {
                         <div className="w-10 h-10 rounded-xl overflow-hidden bg-brand-card border border-brand-border shrink-0">
                           {cat.image_url || cat.imageUrl ? (
                             <img
-                              src={cat.image_url || cat.imageUrl}
+                              src={getMediaUrl(cat.image_url || cat.imageUrl)}
                               alt={cat.name}
                               className="w-full h-full object-cover"
                             />
