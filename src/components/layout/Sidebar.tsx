@@ -10,6 +10,7 @@ import {
   LogOut,
   ExternalLink,
   Sparkles,
+  FolderTree,
 } from 'lucide-react';
 import { useAdminAuth } from '../../context/AuthContext';
 
@@ -22,8 +23,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCloseMobile }) => {
 
   const navItems = [
     { name: 'Dashboard', path: '/', icon: LayoutDashboard },
-    { name: 'Orders Lifecycle', path: '/orders', icon: ShoppingBag },
+    { name: 'Categories', path: '/categories', icon: FolderTree },
     { name: 'Products & Variants', path: '/products', icon: Layers },
+    { name: 'Orders Lifecycle', path: '/orders', icon: ShoppingBag },
     { name: 'Inventory Ledger', path: '/inventory', icon: Boxes },
     { name: 'Coupons & Offers', path: '/coupons', icon: Tag },
     { name: 'Audit Logs', path: '/audit-logs', icon: ShieldCheck },

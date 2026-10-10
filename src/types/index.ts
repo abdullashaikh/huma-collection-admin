@@ -94,27 +94,53 @@ export interface ProductVariant {
   is_active: number;
 }
 
+export type AudienceScope = 'MEN' | 'WOMEN' | 'ALL';
+
 export interface Product {
   id: number;
   category_id: number;
+  subcategory_id?: number | null;
   category_name?: string;
   category_slug?: string;
+  subcategory_name?: string;
+  subcategory_slug?: string;
+  audience: AudienceScope;
   name: string;
   slug: string;
   sku_base: string;
   short_description: string;
   description: string;
   fabric?: string | null;
+  materials?: string | null;
   pattern?: string | null;
   style?: string | null;
+  colors?: any;
+  tags?: any;
   care_instructions?: string | null;
   base_price: number;
   sale_price?: number | null;
-  is_featured: number;
-  is_bestseller: number;
-  is_new_arrival: number;
+  display_order?: number;
+  is_featured: number | boolean;
+  is_bestseller: number | boolean;
+  is_new_arrival: number | boolean;
   status: 'DRAFT' | 'ACTIVE' | 'ARCHIVED';
   primary_image_url?: string | null;
+  images?: Array<{
+    id?: number;
+    s3_url?: string;
+    s3Url?: string;
+    s3_key?: string;
+    s3Key?: string;
+    alt_text?: string;
+    altText?: string;
+    sort_order?: number;
+    sortOrder?: number;
+    is_primary?: boolean | number;
+    isPrimary?: boolean;
+    view_type?: string;
+    viewType?: string;
+  }>;
+  variants?: ProductVariant[];
   total_stock?: number;
   variant_count?: number;
   created_at: string;
@@ -122,12 +148,20 @@ export interface Product {
 
 export interface Category {
   id: number;
+  parent_id?: number | null;
+  parent_name?: string | null;
   name: string;
   slug: string;
   description?: string;
   image_url?: string;
+  imageUrl?: string;
+  audience: AudienceScope;
+  is_active: number | boolean;
   display_order: number;
   product_count: number;
+  seo_title?: string;
+  seo_description?: string;
+  subcategories?: Category[];
 }
 
 export interface InventoryItem {

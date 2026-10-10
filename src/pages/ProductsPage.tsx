@@ -3,15 +3,17 @@ import {
   Search,
   Plus,
   Eye,
+  Edit,
   Trash2,
   CheckCircle,
   XCircle,
   ExternalLink,
   Layers,
   Sparkles,
+  Filter,
 } from 'lucide-react';
 import { api } from '../api/client';
-import { Product, Category } from '../types';
+import { Product, Category, AudienceScope } from '../types';
 import { CreateProductModal } from './CreateProductModal';
 
 export const ProductsPage: React.FC = () => {
@@ -20,8 +22,10 @@ export const ProductsPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
+  const [audienceFilter, setAudienceFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [productToEdit, setProductToEdit] = useState<Product | null>(null);
 
   const fetchProducts = async () => {
     try {
@@ -29,9 +33,12 @@ export const ProductsPage: React.FC = () => {
       const params = new URLSearchParams();
       if (search.trim()) params.append('search', search.trim());
       if (categoryFilter) params.append('category', categoryFilter);
+      if (audienceFilter) params.append('audience', audienceFilter);
       if (statusFilter) params.append('status', statusFilter);
 
-      const res = await api.get<{ products: Product[]; total: number }>(`/products/admin/all?${params.toString()}`);
+      const res = await api.get<{ products: Product[]; total: number }>(
+        `/products/admin/all?${params.toString()}`
+      );
       setProducts(Array.isArray(res) ? res : (res as any)?.products || []);
     } catch (err) {
       console.error('Failed to load products:', err);
@@ -42,7 +49,7 @@ export const ProductsPage: React.FC = () => {
 
   const fetchCategories = async () => {
     try {
-      const res = await api.get<Category[]>('/categories');
+      const res = await api.get<Category[]>('/categories/admin/all');
       setCategories(res || []);
     } catch (err) {
       console.error('Failed to load categories', err);
@@ -52,7 +59,7 @@ export const ProductsPage: React.FC = () => {
   useEffect(() => {
     fetchProducts();
     fetchCategories();
-  }, [categoryFilter, statusFilter]);
+  }, [categoryFilter, audienceFilter, statusFilter]);
 
   const handleToggleStatus = async (product: Product) => {
     const nextStatus = product.status === 'ACTIVE' ? 'DRAFT' : 'ACTIVE';
@@ -78,9 +85,58 @@ export const ProductsPage: React.FC = () => {
     }
   };
 
+  const getAudienceBadge = (audience: AudienceScope) => {
+    switch (audience) {
+      case 'MEN':
+        return (
+          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-500/15 text-blue-400 border border-blue-500/30">
+            Men
+          </span>
+        );
+      case 'WOMEN':
+        return (
+          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+            Women
+          </span>
+        );
+      case 'ALL':
+        return (
+          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30">
+            Shared
+          </span>
+        );
+      default:
+        return null;
+    }
+  };
+
   return (
     <div className="space-y-6">
-      {/* Action Bar */}
+      {/* Top Banner & Action Bar */}
+      <div className="bg-brand-surface border border-brand-border rounded-2xl p-5 flex flex-col md:flex-row gap-4 items-center justify-between">
+        <div>
+          <div className="flex items-center gap-2">
+            <Layers className="w-5 h-5 text-brand-gold" />
+            <h1 className="font-serif text-xl font-bold text-white">Product Management</h1>
+          </div>
+          <p className="text-xs text-slate-400 mt-1">
+            Dynamic audience scoping (Men, Women, Shared), multi-view image management, and publication control.
+          </p>
+        </div>
+
+        <button
+          onClick={() => {
+            setProductToEdit(null);
+            setIsModalOpen(true);
+          }}
+          className="w-full md:w-auto px-5 py-2.5 bg-brand-gold hover:bg-yellow-600 text-brand-dark rounded-xl font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-brand-gold/10 transition-all"
+        >
+          <Plus className="w-4 h-4" />
+          <span>Add Dynamic Product</span>
+        </button>
+      </div>
+
+      {/* Filter and Search Bar */}
       <div className="bg-brand-surface border border-brand-border rounded-2xl p-4 flex flex-col md:flex-row gap-4 items-center justify-between">
         <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
           {/* Search */}
@@ -96,6 +152,18 @@ export const ProductsPage: React.FC = () => {
             />
           </div>
 
+          {/* Audience Filter */}
+          <select
+            value={audienceFilter}
+            onChange={(e) => setAudienceFilter(e.target.value)}
+            className="px-3 py-2 bg-brand-card border border-brand-border rounded-xl text-xs text-slate-300 focus:outline-none focus:border-brand-gold"
+          >
+            <option value="">All Audiences</option>
+            <option value="WOMEN">Women's Products</option>
+            <option value="MEN">Men's Products</option>
+            <option value="ALL">Common / Both (Shared)</option>
+          </select>
+
           {/* Category Filter */}
           <select
             value={categoryFilter}
@@ -105,7 +173,7 @@ export const ProductsPage: React.FC = () => {
             <option value="">All Categories</option>
             {categories.map((c) => (
               <option key={c.id} value={c.slug}>
-                {c.name}
+                {c.name} ({c.audience})
               </option>
             ))}
           </select>
@@ -117,151 +185,174 @@ export const ProductsPage: React.FC = () => {
             className="px-3 py-2 bg-brand-card border border-brand-border rounded-xl text-xs text-slate-300 focus:outline-none focus:border-brand-gold"
           >
             <option value="">All Statuses</option>
-            <option value="ACTIVE">Active</option>
-            <option value="DRAFT">Draft</option>
-            <option value="ARCHIVED">Archived</option>
+            <option value="ACTIVE">ACTIVE (Published)</option>
+            <option value="DRAFT">DRAFT (Unpublished)</option>
+            <option value="ARCHIVED">ARCHIVED (Deactivated)</option>
           </select>
         </div>
 
-        {/* Add Product Button */}
-        <button
-          onClick={() => setIsCreateModalOpen(true)}
-          className="w-full md:w-auto px-4 py-2.5 bg-brand-gold hover:bg-brand-gold-light text-brand-dark font-bold text-xs rounded-xl transition-all shadow-md shadow-brand-gold/10 flex items-center justify-center gap-2 shrink-0"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Add Modest Product</span>
-        </button>
+        <div className="text-xs text-slate-400 self-end md:self-auto">
+          Found <strong className="text-white">{products.length}</strong> items
+        </div>
       </div>
 
       {/* Products Table */}
       <div className="bg-brand-surface border border-brand-border rounded-2xl overflow-hidden shadow-xl">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead>
-              <tr className="border-b border-brand-border bg-brand-card/40 text-slate-400 uppercase tracking-wider">
-                <th className="py-3.5 px-4 font-semibold">Product</th>
-                <th className="py-3.5 px-4 font-semibold">Category</th>
-                <th className="py-3.5 px-4 font-semibold">Pricing</th>
-                <th className="py-3.5 px-4 font-semibold">Variants</th>
-                <th className="py-3.5 px-4 font-semibold">Total Stock</th>
-                <th className="py-3.5 px-4 font-semibold">Status</th>
-                <th className="py-3.5 px-4 font-semibold text-right">Actions</th>
+          <table className="w-full text-left text-xs text-slate-300">
+            <thead className="bg-brand-card/70 border-b border-brand-border uppercase tracking-wider text-[10px] text-slate-400">
+              <tr>
+                <th className="px-5 py-3.5 font-semibold">Product</th>
+                <th className="px-5 py-3.5 font-semibold">Audience</th>
+                <th className="px-5 py-3.5 font-semibold">Category / Subcategory</th>
+                <th className="px-5 py-3.5 font-semibold">Base Price</th>
+                <th className="px-5 py-3.5 font-semibold">Total Stock</th>
+                <th className="px-5 py-3.5 font-semibold">Status</th>
+                <th className="px-5 py-3.5 font-semibold text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-brand-border/40">
+            <tbody className="divide-y divide-brand-border/60">
               {loading ? (
                 <tr>
-                  <td colSpan={7} className="py-12 text-center text-slate-500">
-                    <div className="w-6 h-6 border-2 border-brand-gold border-t-transparent rounded-full animate-spin mx-auto mb-2" />
-                    <span>Loading catalog...</span>
+                  <td colSpan={7} className="text-center py-12 text-slate-400">
+                    Loading products...
                   </td>
                 </tr>
               ) : products.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-12 text-center text-slate-500">
-                    No products found matching the criteria.
+                  <td colSpan={7} className="text-center py-12 text-slate-400">
+                    No products found matching filters.
                   </td>
                 </tr>
               ) : (
-                products.map((product) => (
-                  <tr key={product.id} className="hover:bg-brand-card/30 transition-colors">
-                    {/* Thumbnail & Title */}
-                    <td className="py-3.5 px-4">
+                products.map((p) => (
+                  <tr key={p.id} className="hover:bg-brand-card/40 transition-colors">
+                    {/* Product Name & Image */}
+                    <td className="px-5 py-4">
                       <div className="flex items-center gap-3">
-                        <img
-                          src={product.primary_image_url || 'https://images.unsplash.com/photo-1584282479901-705a6104bc99?auto=format&fit=crop&w=200&q=80'}
-                          alt={product.name}
-                          className="w-10 h-14 object-cover rounded-md bg-brand-card border border-brand-border shrink-0"
-                        />
-                        <div className="min-w-0">
-                          <p className="font-semibold text-white truncate max-w-xs">{product.name}</p>
-                          <p className="text-[10px] font-mono text-brand-gold mt-0.5">{product.sku_base}</p>
-                          {product.fabric && (
-                            <span className="text-[9px] text-slate-400 bg-brand-card px-1.5 py-0.5 rounded border border-brand-border">
-                              {product.fabric}
-                            </span>
+                        <div className="w-12 h-14 rounded-xl overflow-hidden bg-brand-card border border-brand-border shrink-0">
+                          {p.primary_image_url ? (
+                            <img
+                              src={p.primary_image_url}
+                              alt={p.name}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-slate-600">
+                              <Layers className="w-5 h-5" />
+                            </div>
                           )}
                         </div>
-                      </div>
-                    </td>
-
-                    {/* Category */}
-                    <td className="py-3.5 px-4 text-slate-300">
-                      {product.category_name || 'Burqa'}
-                    </td>
-
-                    {/* Pricing */}
-                    <td className="py-3.5 px-4">
-                      <div className="font-bold text-white">
-                        ₹{parseFloat(product.sale_price as any || product.base_price).toLocaleString('en-IN')}
-                      </div>
-                      {product.sale_price && (
-                        <div className="text-[10px] text-slate-400 line-through">
-                          ₹{parseFloat(product.base_price as any).toLocaleString('en-IN')}
+                        <div className="min-w-0">
+                          <p className="font-semibold text-white truncate text-sm">{p.name}</p>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <span className="font-mono text-[10px] text-slate-400">{p.sku_base}</span>
+                            {p.is_featured ? (
+                              <span className="text-[9px] font-bold text-brand-gold bg-brand-gold/15 px-1.5 py-0.2 rounded border border-brand-gold/30">
+                                Featured
+                              </span>
+                            ) : null}
+                          </div>
                         </div>
-                      )}
+                      </div>
                     </td>
 
-                    {/* Variants Count */}
-                    <td className="py-3.5 px-4 text-slate-300 font-mono">
-                      {product.variant_count || 1} sizes
+                    {/* Audience Scope */}
+                    <td className="px-5 py-4">{getAudienceBadge(p.audience)}</td>
+
+                    {/* Category & Subcategory */}
+                    <td className="px-5 py-4">
+                      <div className="space-y-0.5">
+                        <span className="font-semibold text-white block">
+                          {p.category_name || 'Uncategorized'}
+                        </span>
+                        {p.subcategory_name && (
+                          <span className="text-[10px] text-slate-400 block">
+                            ↳ {p.subcategory_name}
+                          </span>
+                        )}
+                      </div>
                     </td>
 
-                    {/* Total Stock */}
-                    <td className="py-3.5 px-4">
+                    {/* Price */}
+                    <td className="px-5 py-4 font-mono">
+                      <div>
+                        <span className="font-bold text-brand-gold text-sm">
+                          ₹{p.sale_price || p.base_price}
+                        </span>
+                        {p.sale_price && (
+                          <span className="text-[10px] text-slate-400 line-through block">
+                            ₹{p.base_price}
+                          </span>
+                        )}
+                      </div>
+                    </td>
+
+                    {/* Stock */}
+                    <td className="px-5 py-4 font-mono">
                       <span
-                        className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold ${
-                          Number(product.total_stock) > 10
-                            ? 'bg-emerald-950/70 border border-emerald-500/30 text-emerald-400'
-                            : Number(product.total_stock) > 0
-                            ? 'bg-amber-950/70 border border-amber-500/30 text-amber-400'
-                            : 'bg-rose-950/70 border border-rose-500/30 text-rose-400'
+                        className={`font-semibold ${
+                          (p.total_stock || 0) < 10 ? 'text-amber-400' : 'text-slate-300'
                         }`}
                       >
-                        {product.total_stock || 0} in stock
+                        {p.total_stock || 0} units
                       </span>
                     </td>
 
-                    {/* Status Badge */}
-                    <td className="py-3.5 px-4">
-                      <span
-                        className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
-                          product.status === 'ACTIVE'
-                            ? 'bg-emerald-950/70 border-emerald-500/30 text-emerald-400'
-                            : product.status === 'DRAFT'
-                            ? 'bg-amber-950/70 border-amber-500/30 text-amber-400'
-                            : 'bg-slate-800 border-slate-700 text-slate-400'
+                    {/* Status Toggle */}
+                    <td className="px-5 py-4">
+                      <button
+                        onClick={() => handleToggleStatus(p)}
+                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider transition-all ${
+                          p.status === 'ACTIVE'
+                            ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30'
+                            : 'bg-amber-500/20 text-amber-400 border border-amber-500/30 hover:bg-amber-500/30'
                         }`}
                       >
-                        {product.status}
-                      </span>
+                        {p.status === 'ACTIVE' ? (
+                          <>
+                            <CheckCircle className="w-3 h-3 text-emerald-400" />
+                            <span>Published</span>
+                          </>
+                        ) : (
+                          <>
+                            <XCircle className="w-3 h-3 text-amber-400" />
+                            <span>Draft</span>
+                          </>
+                        )}
+                      </button>
                     </td>
 
                     {/* Actions */}
-                    <td className="py-3.5 px-4 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <button
-                          onClick={() => handleToggleStatus(product)}
-                          title={`Toggle ${product.status === 'ACTIVE' ? 'Draft' : 'Active'}`}
-                          className="px-2.5 py-1 bg-brand-card hover:bg-brand-border border border-brand-border rounded-lg text-slate-300 text-[11px] font-medium transition-colors"
-                        >
-                          {product.status === 'ACTIVE' ? 'Unpublish' : 'Publish'}
-                        </button>
+                    <td className="px-5 py-4 text-right">
+                      <div className="flex items-center justify-end gap-1.5">
                         <a
-                          href={`http://localhost:3000/burqa/${product.slug}`}
+                          href={`http://localhost:3000/burqa/${p.slug}`}
                           target="_blank"
                           rel="noopener noreferrer"
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-brand-gold hover:bg-brand-card transition-colors"
                           title="View on Storefront"
-                          className="p-1.5 text-slate-400 hover:text-brand-gold bg-brand-card border border-brand-border rounded-lg transition-colors"
                         >
-                          <ExternalLink className="w-3.5 h-3.5" />
+                          <ExternalLink className="w-4 h-4" />
                         </a>
+
                         <button
-                          onClick={() => handleDeleteProduct(product)}
-                          title="Soft delete product"
-                          className="p-1.5 text-slate-400 hover:text-red-400 bg-brand-card border border-brand-border rounded-lg transition-colors"
+                          onClick={() => {
+                            setProductToEdit(p);
+                            setIsModalOpen(true);
+                          }}
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-brand-card transition-colors"
+                          title="Edit Product"
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
+                          <Edit className="w-4 h-4" />
+                        </button>
+
+                        <button
+                          onClick={() => handleDeleteProduct(p)}
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-red-400 hover:bg-brand-card transition-colors"
+                          title="Archive Product"
+                        >
+                          <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
                     </td>
@@ -273,13 +364,12 @@ export const ProductsPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Create Product Modal */}
+      {/* Create / Edit Modal */}
       <CreateProductModal
-        isOpen={isCreateModalOpen}
-        onClose={() => setIsCreateModalOpen(false)}
-        onSuccess={() => {
-          fetchProducts();
-        }}
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSuccess={() => fetchProducts()}
+        productToEdit={productToEdit}
       />
     </div>
   );
