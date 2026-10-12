@@ -32,6 +32,7 @@ export const ProductsPage: React.FC = () => {
     try {
       setLoading(true);
       const params = new URLSearchParams();
+      params.append('limit', '100');
       if (search.trim()) params.append('search', search.trim());
       if (categoryFilter) params.append('category', categoryFilter);
       if (audienceFilter) params.append('audience', audienceFilter);

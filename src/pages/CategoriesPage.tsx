@@ -389,7 +389,7 @@ export const CategoriesPage: React.FC = () => {
                     <div className="flex items-center gap-3 min-w-0">
                       {p.primary_image_url && (
                         <img
-                          src={p.primary_image_url}
+                          src={getMediaUrl(p.primary_image_url)}
                           alt={p.name}
                           className="w-10 h-10 rounded-lg object-cover bg-slate-900 shrink-0"
                         />
