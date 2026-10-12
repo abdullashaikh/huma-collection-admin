@@ -37,6 +37,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } catch (err) {
         console.error('Admin session validation failed:', err);
         localStorage.removeItem('huma_admin_token');
+        localStorage.removeItem('huma_admin_refresh_token');
         localStorage.removeItem('huma_admin_user');
         setToken(null);
         setUser(null);
@@ -50,10 +51,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = async (email: string, pass: string) => {
     const res = await api.post('/auth/admin/login', { email, password: pass });
-    const { admin, accessToken } = res;
+    const { admin, accessToken, refreshToken } = res;
     setToken(accessToken);
     setUser(admin);
     localStorage.setItem('huma_admin_token', accessToken);
+    if (refreshToken) {
+      localStorage.setItem('huma_admin_refresh_token', refreshToken);
+    }
     localStorage.setItem('huma_admin_user', JSON.stringify(admin));
   };
 
@@ -66,6 +70,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setToken(null);
     setUser(null);
     localStorage.removeItem('huma_admin_token');
+    localStorage.removeItem('huma_admin_refresh_token');
     localStorage.removeItem('huma_admin_user');
     window.location.href = '/login';
   };

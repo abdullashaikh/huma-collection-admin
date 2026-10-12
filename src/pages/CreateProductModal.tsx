@@ -38,7 +38,7 @@ interface VariantFormItem {
   size: string;
   color: string;
   price: number;
-  compareAtPrice?: number;
+  compareAtPrice?: number | null;
   stockQuantity: number;
   lowStockThreshold: number;
 }
@@ -133,15 +133,24 @@ export const CreateProductModal: React.FC<CreateProductModalProps> = ({
       setMaterials(productToEdit.materials || '');
       setPattern(productToEdit.pattern || '');
       setStyle(productToEdit.style || '');
+      let parsedColors = productToEdit.colors;
+      if (typeof parsedColors === 'string') {
+        try { parsedColors = JSON.parse(parsedColors); } catch {}
+      }
       setColors(
-        Array.isArray(productToEdit.colors)
-          ? productToEdit.colors.join(', ')
-          : productToEdit.colors || 'Obsidian Black'
+        Array.isArray(parsedColors)
+          ? parsedColors.join(', ')
+          : (parsedColors || '')
       );
+
+      let parsedTags = productToEdit.tags;
+      if (typeof parsedTags === 'string') {
+        try { parsedTags = JSON.parse(parsedTags); } catch {}
+      }
       setTags(
-        Array.isArray(productToEdit.tags)
-          ? productToEdit.tags.join(', ')
-          : productToEdit.tags || 'Modest'
+        Array.isArray(parsedTags)
+          ? parsedTags.join(', ')
+          : (parsedTags || '')
       );
       setCareInstructions(productToEdit.care_instructions || '');
       setBasePrice(productToEdit.base_price || 0);
@@ -153,6 +162,39 @@ export const CreateProductModal: React.FC<CreateProductModalProps> = ({
       setIsBestseller(Boolean(productToEdit.is_bestseller));
       setIsNewArrival(Boolean(productToEdit.is_new_arrival));
       setStatus(productToEdit.status || 'ACTIVE');
+
+      // Populate variants
+      if (productToEdit.variants && productToEdit.variants.length > 0) {
+        setVariants(
+          productToEdit.variants.map((v: any) => {
+            const skuParts = (v.sku || '').split('-');
+            const guessedSize = skuParts.length > 1 ? skuParts[skuParts.length - 1] : '54';
+            return {
+              id: v.id,
+              sku: v.sku || '',
+              size: (v as any).size || guessedSize,
+              color: (v as any).color || (Array.isArray(parsedColors) ? parsedColors[0] : 'Standard'),
+              price: Number(v.price ?? productToEdit.sale_price ?? productToEdit.base_price ?? 0),
+              compareAtPrice: v.compare_at_price ?? v.compareAtPrice ? Number(v.compare_at_price ?? v.compareAtPrice) : null,
+              stockQuantity: Number(v.stock_quantity ?? v.stockQuantity ?? 0),
+              lowStockThreshold: Number(v.low_stock_threshold ?? v.lowStockThreshold ?? 5),
+            };
+          })
+        );
+      } else {
+        const baseSku = productToEdit.sku_base || 'HHC-BRQ';
+        setVariants([
+          {
+            sku: `${baseSku}-54`,
+            size: '54',
+            color: 'Standard',
+            price: Number(productToEdit.sale_price || productToEdit.base_price || 0),
+            compareAtPrice: Number(productToEdit.base_price || 0),
+            stockQuantity: 15,
+            lowStockThreshold: 5,
+          },
+        ]);
+      }
 
       // Populate images
       if (productToEdit.images && productToEdit.images.length > 0) {
@@ -181,7 +223,9 @@ export const CreateProductModal: React.FC<CreateProductModalProps> = ({
       // Create defaults
       setName('');
       setSlug('');
-      setSkuBase('HHC-BRQ-' + Math.floor(100 + Math.random() * 900));
+      const randomNum = Math.floor(100 + Math.random() * 900);
+      const defaultSkuBase = `HHC-BRQ-${randomNum}`;
+      setSkuBase(defaultSkuBase);
       setFabric('Premium Saudi Crepe');
       setMaterials('100% Imported Saudi Nida');
       setPattern('Embroidered');
@@ -210,8 +254,8 @@ export const CreateProductModal: React.FC<CreateProductModalProps> = ({
         },
       ]);
       setVariants([
-        { sku: 'HHC-BRQ-54', size: '54', color: 'Obsidian Black', price: 2999, compareAtPrice: 3499, stockQuantity: 25, lowStockThreshold: 5 },
-        { sku: 'HHC-BRQ-56', size: '56', color: 'Obsidian Black', price: 2999, compareAtPrice: 3499, stockQuantity: 20, lowStockThreshold: 5 },
+        { sku: `${defaultSkuBase}-54`, size: '54', color: 'Obsidian Black', price: 2999, compareAtPrice: 3499, stockQuantity: 25, lowStockThreshold: 5 },
+        { sku: `${defaultSkuBase}-56`, size: '56', color: 'Obsidian Black', price: 2999, compareAtPrice: 3499, stockQuantity: 20, lowStockThreshold: 5 },
       ]);
     }
     setError(null);
@@ -320,21 +364,26 @@ export const CreateProductModal: React.FC<CreateProductModalProps> = ({
         isBestseller,
         isNewArrival,
         status,
-        images: images.map((img, i) => ({
-          s3Url: img.s3Url,
-          altText: img.altText || name,
-          viewType: img.viewType,
-          isPrimary: img.isPrimary,
-          sortOrder: i + 1,
-        })),
-        variants: variants.map((v) => ({
-          id: v.id,
-          sku: v.sku.trim(),
-          price: Number(v.price),
-          compareAtPrice: v.compareAtPrice ? Number(v.compareAtPrice) : null,
-          stockQuantity: Number(v.stockQuantity),
-          lowStockThreshold: Number(v.lowStockThreshold || 5),
-        })),
+        images: images
+          .filter((img) => img.s3Url && img.s3Url.trim())
+          .map((img, i) => ({
+            s3Url: img.s3Url.trim(),
+            s3Key: img.s3Key,
+            altText: img.altText || name,
+            viewType: img.viewType,
+            isPrimary: img.isPrimary,
+            sortOrder: i + 1,
+          })),
+        variants: variants
+          .filter((v) => v.sku && v.sku.trim())
+          .map((v) => ({
+            id: v.id,
+            sku: v.sku.trim(),
+            price: Number(v.price),
+            compareAtPrice: v.compareAtPrice ? Number(v.compareAtPrice) : null,
+            stockQuantity: Number(v.stockQuantity || 0),
+            lowStockThreshold: Number(v.lowStockThreshold || 5),
+          })),
       };
 
       if (productToEdit) {

@@ -39,9 +39,9 @@ export const CategoryModal: React.FC<CategoryModalProps> = ({
       setDescription(categoryToEdit.description || '');
       setImageUrl(categoryToEdit.image_url || categoryToEdit.imageUrl || '');
       setAudience(categoryToEdit.audience || 'WOMEN');
-      setParentId(categoryToEdit.parent_id || null);
-      setDisplayOrder(categoryToEdit.display_order ?? 0);
-      setIsActive(Boolean(categoryToEdit.is_active));
+      setParentId(categoryToEdit.parent_id ?? (categoryToEdit as any).parentId ?? null);
+      setDisplayOrder(categoryToEdit.display_order ?? (categoryToEdit as any).displayOrder ?? 0);
+      setIsActive(Boolean(categoryToEdit.is_active ?? (categoryToEdit as any).isActive ?? true));
     } else {
       setName('');
       setSlug('');
@@ -103,7 +103,7 @@ export const CategoryModal: React.FC<CategoryModalProps> = ({
 
   // Filter root categories for parent selection
   const rootCategories = existingCategories.filter(
-    (c) => (!c.parent_id || c.parent_id === null) && (!categoryToEdit || c.id !== categoryToEdit.id)
+    (c) => (!c.parent_id && !(c as any).parentId) && (!categoryToEdit || c.id !== categoryToEdit.id)
   );
 
   return (

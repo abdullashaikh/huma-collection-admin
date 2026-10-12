@@ -50,11 +50,12 @@ export const CategoriesPage: React.FC = () => {
   }, []);
 
   const handleToggleStatus = async (cat: Category) => {
-    const nextStatus = !cat.is_active;
+    const currentStatus = Boolean(cat.is_active ?? (cat as any).isActive);
+    const nextStatus = !currentStatus;
     try {
       await api.patch(`/categories/admin/${cat.id}/status`, { isActive: nextStatus });
       setCategories((prev) =>
-        prev.map((c) => (c.id === cat.id ? { ...c, is_active: nextStatus } : c))
+        prev.map((c) => (c.id === cat.id ? { ...c, is_active: nextStatus, isActive: nextStatus } as any : c))
       );
     } catch (err: any) {
       alert(err.message || 'Failed to update category status');

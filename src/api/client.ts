@@ -11,11 +11,42 @@ export class ApiError extends Error {
   }
 }
 
+let isRefreshing = false;
+let refreshPromise: Promise<string | null> | null = null;
+
+async function attemptTokenRefresh(): Promise<string | null> {
+  const refreshToken = localStorage.getItem('huma_admin_refresh_token');
+  if (!refreshToken) return null;
+
+  try {
+    const url = `${API_BASE}/auth/admin/refresh`;
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refreshToken }),
+    });
+
+    const data = await response.json().catch(() => null);
+    if (response.ok && data?.data?.accessToken) {
+      const newAccessToken = data.data.accessToken;
+      localStorage.setItem('huma_admin_token', newAccessToken);
+      if (data.data.refreshToken) {
+        localStorage.setItem('huma_admin_refresh_token', data.data.refreshToken);
+      }
+      return newAccessToken;
+    }
+  } catch {
+    // Network or server error during refresh
+  }
+
+  return null;
+}
+
 export async function apiRequest<T = any>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<T> {
-  const token = localStorage.getItem('huma_admin_token');
+  let token = localStorage.getItem('huma_admin_token');
 
   const headers: Record<string, string> = {
     ...(options.body instanceof FormData ? {} : { 'Content-Type': 'application/json' }),
@@ -28,16 +59,44 @@ export async function apiRequest<T = any>(
 
   const url = endpoint.startsWith('http') ? endpoint : `${API_BASE}${endpoint.startsWith('/') ? '' : '/'}${endpoint}`;
 
-  const response = await fetch(url, {
+  let response = await fetch(url, {
     ...options,
     headers,
   });
+
+  // Handle 401 token expiration with silent refresh
+  if (response.status === 401 && !endpoint.includes('/auth/admin/login') && !endpoint.includes('/auth/admin/refresh')) {
+    if (!isRefreshing) {
+      isRefreshing = true;
+      refreshPromise = attemptTokenRefresh().finally(() => {
+        isRefreshing = false;
+        refreshPromise = null;
+      });
+    }
+
+    const newToken = await refreshPromise;
+    if (newToken) {
+      headers['Authorization'] = `Bearer ${newToken}`;
+      response = await fetch(url, {
+        ...options,
+        headers,
+      });
+    } else {
+      localStorage.removeItem('huma_admin_token');
+      localStorage.removeItem('huma_admin_refresh_token');
+      localStorage.removeItem('huma_admin_user');
+      if (window.location.pathname !== '/login') {
+        window.location.href = '/login';
+      }
+    }
+  }
 
   const data = await response.json().catch(() => null);
 
   if (!response.ok) {
     if (response.status === 401) {
       localStorage.removeItem('huma_admin_token');
+      localStorage.removeItem('huma_admin_refresh_token');
       localStorage.removeItem('huma_admin_user');
       if (window.location.pathname !== '/login') {
         window.location.href = '/login';
@@ -56,6 +115,10 @@ export const api = {
     apiRequest<T>(endpoint, { method: 'POST', body: body ? JSON.stringify(body) : undefined }),
   postFormData: <T = any>(endpoint: string, formData: FormData) =>
     apiRequest<T>(endpoint, { method: 'POST', body: formData }),
+  put: <T = any>(endpoint: string, body?: any) =>
+    apiRequest<T>(endpoint, { method: 'PUT', body: body ? JSON.stringify(body) : undefined }),
+  putFormData: <T = any>(endpoint: string, formData: FormData) =>
+    apiRequest<T>(endpoint, { method: 'PUT', body: formData }),
   patch: <T = any>(endpoint: string, body?: any) =>
     apiRequest<T>(endpoint, { method: 'PATCH', body: body ? JSON.stringify(body) : undefined }),
   delete: <T = any>(endpoint: string) => apiRequest<T>(endpoint, { method: 'DELETE' }),
