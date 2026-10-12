@@ -61,13 +61,65 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
   const [manualUrl, setManualUrl] = useState('');
   const [manualViewType, setManualViewType] = useState<ViewType>('FRONT');
 
+  // Client-side image pre-compression helper
+  const compressImageClient = async (file: File, maxDim = 1920, quality = 0.85): Promise<File> => {
+    if (!file.type.startsWith('image/') || file.type === 'image/gif' || file.size < 300 * 1024) {
+      return file;
+    }
+    return new Promise<File>((resolve) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          let width = img.naturalWidth || img.width;
+          let height = img.naturalHeight || img.height;
+          if (width > maxDim || height > maxDim) {
+            if (width > height) {
+              height = Math.round((height * maxDim) / width);
+              width = maxDim;
+            } else {
+              width = Math.round((width * maxDim) / height);
+              height = maxDim;
+            }
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            resolve(file);
+            return;
+          }
+          ctx.drawImage(img, 0, 0, width, height);
+          canvas.toBlob(
+            (blob) => {
+              if (!blob || blob.size >= file.size) {
+                resolve(file);
+                return;
+              }
+              const cleanName = file.name.replace(/\.[^/.]+$/, '');
+              const newFile = new File([blob], `${cleanName}.webp`, { type: 'image/webp' });
+              resolve(newFile);
+            },
+            'image/webp',
+            quality
+          );
+        };
+        img.onerror = () => resolve(file);
+        img.src = e.target?.result as string;
+      };
+      reader.onerror = () => resolve(file);
+      reader.readAsDataURL(file);
+    });
+  };
+
   // Handle file drop / select
   const handleFiles = async (files: FileList | File[]) => {
-    const fileArray = Array.from(files).filter((f) =>
+    const rawArray = Array.from(files).filter((f) =>
       ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'].includes(f.type)
     );
 
-    if (fileArray.length === 0) {
+    if (rawArray.length === 0) {
       setError('Please select valid image files (JPG, PNG, WEBP, GIF).');
       return;
     }
@@ -77,6 +129,9 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
     setUploading(true);
 
     try {
+      setUploadProgress(`Compressing & optimizing ${rawArray.length} asset${rawArray.length > 1 ? 's' : ''}...`);
+      const fileArray = await Promise.all(rawArray.map((f) => compressImageClient(f)));
+
       if (mode === 'single') {
         const file = fileArray[0];
         setUploadProgress(`Uploading ${file.name}...`);
@@ -92,7 +147,7 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
         }
         setSuccessMsg(
           res.storage === 's3'
-            ? 'Uploaded securely to AWS S3 bucket!'
+            ? 'Uploaded securely to AWS S3 bucket (Optimized WebP)!'
             : 'Saved successfully (ready for storefront display).'
         );
       } else {
@@ -290,7 +345,7 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
                   <span className="text-brand-gold hover:underline">Click to upload</span> or drag and drop
                 </p>
                 <p className="text-[10px] text-slate-400 mt-0.5">
-                  WEBP, JPG, PNG, GIF up to 20MB {mode === 'multiple' ? '• Batch multi-select supported' : ''}
+                  Auto-compressed WebP • JPG, PNG, GIF up to 25MB {mode === 'multiple' ? '• Batch multi-select supported' : ''}
                 </p>
               </div>
             </>
