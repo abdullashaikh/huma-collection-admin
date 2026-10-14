@@ -44,7 +44,7 @@ async function attemptTokenRefresh(): Promise<string | null> {
 
 export async function apiRequest<T = any>(
   endpoint: string,
-  options: RequestInit = {}
+  options: RequestInit & { raw?: boolean } = {}
 ): Promise<T> {
   let token = localStorage.getItem('huma_admin_token');
 
@@ -106,11 +106,20 @@ export async function apiRequest<T = any>(
     throw new ApiError(message, response.status, data?.error?.code);
   }
 
+  if (options.raw) {
+    return data;
+  }
+
   return data?.data !== undefined ? data.data : data;
 }
 
 export const api = {
   get: <T = any>(endpoint: string) => apiRequest<T>(endpoint, { method: 'GET' }),
+  getWithMeta: <T = any>(endpoint: string) =>
+    apiRequest<{ data: T; meta?: { total?: number; page?: number; limit?: number }; success?: boolean }>(endpoint, {
+      method: 'GET',
+      raw: true,
+    } as any),
   post: <T = any>(endpoint: string, body?: any) =>
     apiRequest<T>(endpoint, { method: 'POST', body: body ? JSON.stringify(body) : undefined }),
   postFormData: <T = any>(endpoint: string, formData: FormData) =>

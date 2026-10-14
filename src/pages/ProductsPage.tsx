@@ -11,11 +11,28 @@ import {
   Layers,
   Sparkles,
   Filter,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
 } from 'lucide-react';
 import { api } from '../api/client';
 import { Product, Category, AudienceScope } from '../types';
 import { CreateProductModal } from './CreateProductModal';
 import { getMediaUrl } from '../utils/media';
+
+function getPageNumbers(current: number, total: number): (number | '...')[] {
+  if (total <= 7) {
+    return Array.from({ length: total }, (_, i) => i + 1);
+  }
+  if (current <= 4) {
+    return [1, 2, 3, 4, 5, '...', total];
+  }
+  if (current >= total - 3) {
+    return [1, '...', total - 4, total - 3, total - 2, total - 1, total];
+  }
+  return [1, '...', current - 1, current, current + 1, '...', total];
+}
 
 export const ProductsPage: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
@@ -28,20 +45,41 @@ export const ProductsPage: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [productToEdit, setProductToEdit] = useState<Product | null>(null);
 
-  const fetchProducts = async () => {
+  // Pagination State - 10 items per chunk to prevent page slowdown
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [totalProducts, setTotalProducts] = useState(0);
+
+  const fetchProducts = async (page = currentPage, limit = pageSize) => {
     try {
       setLoading(true);
       const params = new URLSearchParams();
-      params.append('limit', '100');
+      params.append('page', String(page));
+      params.append('limit', String(limit));
       if (search.trim()) params.append('search', search.trim());
       if (categoryFilter) params.append('category', categoryFilter);
       if (audienceFilter) params.append('audience', audienceFilter);
       if (statusFilter) params.append('status', statusFilter);
 
-      const res = await api.get<{ products: Product[]; total: number }>(
+      const res = await api.getWithMeta<Product[]>(
         `/products/admin/all?${params.toString()}`
       );
-      setProducts(Array.isArray(res) ? res : (res as any)?.products || []);
+
+      const productList: Product[] = Array.isArray(res?.data)
+        ? res.data
+        : Array.isArray(res)
+        ? res
+        : (res as any)?.products || [];
+
+      const totalCount =
+        typeof res?.meta?.total === 'number'
+          ? res.meta.total
+          : typeof (res as any)?.total === 'number'
+          ? (res as any).total
+          : productList.length;
+
+      setProducts(productList);
+      setTotalProducts(totalCount);
     } catch (err) {
       console.error('Failed to load products:', err);
     } finally {
@@ -59,9 +97,12 @@ export const ProductsPage: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchProducts();
+    fetchProducts(currentPage, pageSize);
+  }, [currentPage, pageSize, categoryFilter, audienceFilter, statusFilter]);
+
+  useEffect(() => {
     fetchCategories();
-  }, [categoryFilter, audienceFilter, statusFilter]);
+  }, []);
 
   const handleToggleStatus = async (product: Product) => {
     const nextStatus = product.status === 'ACTIVE' ? 'DRAFT' : 'ACTIVE';
@@ -112,6 +153,8 @@ export const ProductsPage: React.FC = () => {
     }
   };
 
+  const totalPages = Math.max(1, Math.ceil(totalProducts / pageSize));
+
   return (
     <div className="space-y-6">
       {/* Top Banner & Action Bar */}
@@ -148,7 +191,12 @@ export const ProductsPage: React.FC = () => {
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && fetchProducts()}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  setCurrentPage(1);
+                  fetchProducts(1, pageSize);
+                }
+              }}
               placeholder="Search products & SKUs..."
               className="w-full pl-9 pr-4 py-2 bg-brand-card border border-brand-border rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-brand-gold"
             />
@@ -157,7 +205,10 @@ export const ProductsPage: React.FC = () => {
           {/* Audience Filter */}
           <select
             value={audienceFilter}
-            onChange={(e) => setAudienceFilter(e.target.value)}
+            onChange={(e) => {
+              setAudienceFilter(e.target.value);
+              setCurrentPage(1);
+            }}
             className="px-3 py-2 bg-brand-card border border-brand-border rounded-xl text-xs text-slate-300 focus:outline-none focus:border-brand-gold"
           >
             <option value="">All Audiences</option>
@@ -169,7 +220,10 @@ export const ProductsPage: React.FC = () => {
           {/* Category Filter */}
           <select
             value={categoryFilter}
-            onChange={(e) => setCategoryFilter(e.target.value)}
+            onChange={(e) => {
+              setCategoryFilter(e.target.value);
+              setCurrentPage(1);
+            }}
             className="px-3 py-2 bg-brand-card border border-brand-border rounded-xl text-xs text-slate-300 focus:outline-none focus:border-brand-gold"
           >
             <option value="">All Categories</option>
@@ -183,7 +237,10 @@ export const ProductsPage: React.FC = () => {
           {/* Status Filter */}
           <select
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
+            onChange={(e) => {
+              setStatusFilter(e.target.value);
+              setCurrentPage(1);
+            }}
             className="px-3 py-2 bg-brand-card border border-brand-border rounded-xl text-xs text-slate-300 focus:outline-none focus:border-brand-gold"
           >
             <option value="">All Statuses</option>
@@ -194,7 +251,7 @@ export const ProductsPage: React.FC = () => {
         </div>
 
         <div className="text-xs text-slate-400 self-end md:self-auto">
-          Found <strong className="text-white">{products.length}</strong> items
+          Found <strong className="text-white">{totalProducts}</strong> items
         </div>
       </div>
 
@@ -237,6 +294,7 @@ export const ProductsPage: React.FC = () => {
                             <img
                               src={getMediaUrl(p.primary_image_url)}
                               alt={p.name}
+                              loading="lazy"
                               className="w-full h-full object-cover"
                             />
                           ) : (
@@ -366,11 +424,110 @@ export const ProductsPage: React.FC = () => {
         </div>
       </div>
 
+      {/* Pagination Bar - Chunking into 10 items per page */}
+      <div className="bg-brand-surface border border-brand-border rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-300 shadow-lg">
+        {/* Showing X to Y of Z products */}
+        <div className="flex flex-wrap items-center gap-3">
+          <span>
+            Showing{' '}
+            <strong className="text-white">
+              {totalProducts === 0 ? 0 : (currentPage - 1) * pageSize + 1}
+            </strong>{' '}
+            to{' '}
+            <strong className="text-white">
+              {Math.min(currentPage * pageSize, totalProducts)}
+            </strong>{' '}
+            of <strong className="text-white">{totalProducts}</strong> products
+          </span>
+
+          <span className="text-slate-600 hidden sm:inline">•</span>
+
+          <div className="flex items-center gap-1.5 text-slate-400">
+            <span>Per page:</span>
+            <select
+              value={pageSize}
+              onChange={(e) => {
+                const nextSize = Number(e.target.value);
+                setPageSize(nextSize);
+                setCurrentPage(1);
+              }}
+              className="px-2.5 py-1 bg-brand-card border border-brand-border rounded-lg text-white font-medium focus:outline-none focus:border-brand-gold text-xs cursor-pointer"
+            >
+              <option value={10}>10 items</option>
+              <option value={20}>20 items</option>
+              <option value={50}>50 items</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Page Nav controls */}
+        {totalPages > 1 && (
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => setCurrentPage(1)}
+              disabled={currentPage === 1 || loading}
+              className="p-1.5 rounded-lg border border-brand-border bg-brand-card hover:bg-brand-card/80 text-slate-300 disabled:opacity-30 disabled:pointer-events-none transition-colors"
+              title="First Page"
+            >
+              <ChevronsLeft className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={currentPage === 1 || loading}
+              className="p-1.5 rounded-lg border border-brand-border bg-brand-card hover:bg-brand-card/80 text-slate-300 disabled:opacity-30 disabled:pointer-events-none transition-colors"
+              title="Previous Page"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+
+            <div className="flex items-center gap-1">
+              {getPageNumbers(currentPage, totalPages).map((p, idx) =>
+                p === '...' ? (
+                  <span key={`ellipsis-${idx}`} className="px-1 text-slate-500 select-none">
+                    ...
+                  </span>
+                ) : (
+                  <button
+                    key={p}
+                    onClick={() => setCurrentPage(Number(p))}
+                    disabled={loading}
+                    className={`min-w-[28px] h-7 px-2 rounded-lg text-xs font-semibold flex items-center justify-center transition-all ${
+                      currentPage === p
+                        ? 'bg-brand-gold text-brand-dark font-bold shadow-md shadow-brand-gold/20'
+                        : 'border border-brand-border bg-brand-card hover:bg-brand-card/80 text-slate-300 hover:text-white'
+                    }`}
+                  >
+                    {p}
+                  </button>
+                )
+              )}
+            </div>
+
+            <button
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              disabled={currentPage >= totalPages || loading}
+              className="p-1.5 rounded-lg border border-brand-border bg-brand-card hover:bg-brand-card/80 text-slate-300 disabled:opacity-30 disabled:pointer-events-none transition-colors"
+              title="Next Page"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => setCurrentPage(totalPages)}
+              disabled={currentPage >= totalPages || loading}
+              className="p-1.5 rounded-lg border border-brand-border bg-brand-card hover:bg-brand-card/80 text-slate-300 disabled:opacity-30 disabled:pointer-events-none transition-colors"
+              title="Last Page"
+            >
+              <ChevronsRight className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+      </div>
+
       {/* Create / Edit Modal */}
       <CreateProductModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        onSuccess={() => fetchProducts()}
+        onSuccess={() => fetchProducts(currentPage, pageSize)}
         productToEdit={productToEdit}
       />
     </div>
